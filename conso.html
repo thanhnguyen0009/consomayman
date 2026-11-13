@@ -134,6 +134,7 @@
       display: flex;
       gap: 16px;
       justify-content: center;
+      flex-wrap: wrap;
     }
 
     button {
@@ -340,7 +341,7 @@
     <p class="subtitle"></p>
 
     <div class="number-display">
-      <span class="placeholder" id="placeholder"></span>
+      <span class="placeholder" id="placeholder">Nhấn quay số</span>
       <span class="number" id="number"></span>
     </div>
 
@@ -370,13 +371,36 @@
     const overlay = document.getElementById('overlay');
     const toastClose = document.getElementById('toastClose');
 
+    // Danh sách số còn lại (1 → 1000)
+    let availableNumbers = [];
     let currentNumber = null;
     let isSpinning = false;
     let spinInterval = null;
     let toastTimeout = null;
 
+    // Khởi tạo danh sách
+    function initNumbers() {
+      availableNumbers = [];
+      for (let i = 1; i <= 1000; i++) {
+        availableNumbers.push(i);
+      }
+    }
+
+    // Lấy ngẫu nhiên 1 số từ danh sách còn lại và xóa nó
     function getRandomNumber() {
-      return Math.floor(Math.random() * 1000) + 1;
+      if (availableNumbers.length === 0) return null;
+
+      const index = Math.floor(Math.random() * availableNumbers.length);
+      const number = availableNumbers[index];
+      availableNumbers.splice(index, 1); // Xóa hẳn khỏi danh sách
+      return number;
+    }
+
+    // Chỉ lấy số để hiện trong lúc quay (không xóa)
+    function peekRandomNumber() {
+      if (availableNumbers.length === 0) return 0;
+      const index = Math.floor(Math.random() * availableNumbers.length);
+      return availableNumbers[index];
     }
 
     function showToast(num) {
@@ -386,7 +410,6 @@
       toast.classList.add('show');
       overlay.classList.add('show');
 
-      // Tự đóng sau 5 giây (người dùng vẫn có thể nhấn Đóng sớm hơn)
       toastTimeout = setTimeout(() => {
         hideToast();
       }, 5000);
@@ -402,7 +425,7 @@
     }
 
     function startSpin() {
-      if (isSpinning) return;
+      if (isSpinning || availableNumbers.length === 0) return;
 
       isSpinning = true;
       btnGenerate.disabled = true;
@@ -417,11 +440,12 @@
       numberEl.style.opacity = '1';
       numberEl.style.transform = 'scale(1)';
 
+      // Quay nhanh bằng số còn lại (chỉ hiện, chưa xóa)
       spinInterval = setInterval(() => {
-        numberEl.textContent = getRandomNumber();
+        numberEl.textContent = peekRandomNumber();
       }, 50);
 
-      // Giảm thời gian quay xuống 2 giây
+      // Sau 2 giây thì dừng và lấy số thật (có xóa)
       setTimeout(() => {
         stopSpin();
       }, 2000);
@@ -431,14 +455,26 @@
       clearInterval(spinInterval);
       spinInterval = null;
 
-      currentNumber = getRandomNumber();
-      numberEl.textContent = currentNumber;
+      currentNumber = getRandomNumber(); // Lấy + xóa khỏi danh sách
 
+      if (currentNumber === null) {
+        numberEl.textContent = '—';
+        numberEl.classList.remove('spinning');
+        isSpinning = false;
+        btnGenerate.disabled = true;
+        btnGenerate.textContent = 'Đã hết số';
+        return;
+      }
+
+      numberEl.textContent = currentNumber;
       numberEl.classList.remove('spinning');
       numberEl.classList.add('show');
 
       isSpinning = false;
-      btnGenerate.disabled = false;
+      btnGenerate.disabled = availableNumbers.length === 0;
+      if (availableNumbers.length === 0) {
+        btnGenerate.textContent = 'Đã hết số';
+      }
       btnClear.disabled = false;
 
       // Hiện thông báo
@@ -463,6 +499,9 @@
         btnClear.disabled = true;
       }, 350);
     }
+
+    // Khởi tạo
+    initNumbers();
 
     btnGenerate.addEventListener('click', startSpin);
     btnClear.addEventListener('click', clearNumber);
